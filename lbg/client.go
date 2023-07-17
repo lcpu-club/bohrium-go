@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"path"
@@ -16,8 +17,9 @@ type Client struct {
 	conf   *ClientConfigure
 	client *http.Client
 
-	email string
-	token string
+	email  string
+	userID string
+	token  string
 }
 
 type ClientConfigure struct {
@@ -153,4 +155,35 @@ func (c *Client) doRequest(
 		}
 	}
 	return statusCode, response, err
+}
+
+func (c *Client) Login() error {
+	if c.conf.Email == "" {
+		return fmt.Errorf("email not set")
+	}
+	if c.conf.Password == "" {
+		return fmt.Errorf("password not set")
+	}
+	c.email = c.conf.Email
+	_, resp, err := c.doRequest(
+		"POST",
+		"/account/login",
+		[]byte(fmt.Sprintf(`{"email":"%s","password":"%s"}`, c.email, c.conf.Password)),
+		nil,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+	log.Println(string(resp))
+	node, err := sonic.Get(resp, "token")
+	if err != nil {
+		return err
+	}
+	token, err := node.String()
+	if err != nil {
+		return err
+	}
+	c.token = token
+	return nil
 }
